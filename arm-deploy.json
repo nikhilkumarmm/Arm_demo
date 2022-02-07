@@ -1,0 +1,227 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "vnetname": {
+        "type": "string",
+        "metadata": {
+            "description": "description"
+        }
+    },
+    "subnet-front": {
+        "type": "string",
+        "metadata": {
+            "description": "description"
+        }
+    },
+    "storage-env": {
+        "type": "string",
+        "metadata": {
+            "description": "description"
+        }
+    },
+    "accountName": {
+        "type": "string",
+        "metadata": {
+            "description": "Cosmos DB account name"
+        }
+    },
+    "databaseName": {
+        "type": "string",
+        "metadata": {
+            "description": "Database name of cosmos DB"
+        }
+    },
+   "containerName": {
+       "type": "string",
+       "metadata": {
+           "description": "Name of the Container"
+       }
+   },
+    "functioName": {
+        "type": "string",
+        "metadata": {
+            "description": "Name of the function"
+        }
+    },
+    "serverFarmName": {
+        "type": "string",
+        "metadata": {
+            "description": "serverFarmName name"
+        }
+    }},
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "name": "[parameters('vnetname')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2020-11-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "virtualNetwork1"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('subnet-front')]",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24"
+                        }
+                    },
+                    {
+                        "name": "Subnet-2",
+                        "properties": {
+                            "addressPrefix": "10.0.1.0/24"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[parameters('storage-env')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2021-04-01",
+            "tags": {
+                "displayName": "[parameters('storage-env')]"
+            },
+            "location": "[resourceGroup().location]",
+            "kind": "StorageV2",
+            "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+            }
+        },
+        {
+            "name": "[parameters('accountName')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts",
+            "apiVersion": "2021-05-15",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "kind": "GlobalDocumentDB",
+            "properties": {
+                "consistencyPolicy": {
+                    "defaultConsistencyLevel": "Eventual",
+                    "maxStalenessPrefix": 1,
+                    "maxIntervalInSeconds": 5
+                },
+                "locations": [
+                    {
+                        "locationName": "[resourceGroup().location]",
+                        "failoverPriority": 0
+                    }
+                ],
+                "databaseAccountOfferType": "Standard",
+                "enableAutomaticFailover": true,
+                "capabilities": []
+                
+            }
+        },
+    {
+        "type": "Microsoft.DocumentDB/databaseAccounts/apis/databases",
+        "name": "[concat(parameters('accountName'), '/sql/', parameters('databaseName'))]",
+        "apiVersion": "2016-03-31",
+        "dependsOn": [
+            "[resourceId('Microsoft.DocumentDB/databaseAccounts/', parameters('accountName'))]"
+        ],
+        "properties": {
+            "resource": {
+                "id": "[parameters('databaseName')]"
+            },
+            "options": {
+                "throughput": "400"
+            }
+        }
+    },
+    {
+        "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+        "name": "[concat(parameters('accountName'), '/sql/', parameters('databaseName'), '/', parameters('containerName'))]",
+        "apiVersion": "2016-03-31",
+        "dependsOn": [
+            "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', parameters('accountName'), 'sql', parameters('databaseName'))]"
+        ],
+        "properties": {
+            "resource": {
+                "id": "[parameters('containerName')]",
+                "partitionKey": {
+                    "paths": [
+                        "/myPartitionKey1"
+                    ],
+                    "kind": "hash"
+                },
+                "indexingPolicy": {
+                    "indexingMode": "consistent",
+                    "includedPaths": [],
+                     "excludedPaths": []
+                }
+            },
+            "options": {}
+        }
+    },
+    {
+        "name": "[parameters('functioName')]",
+        "type": "Microsoft.Web/sites",
+        "apiVersion": "2020-12-01",
+        "location": "[resourceGroup().location]",
+        "kind": "functionapp",
+        "dependsOn": [
+            "[resourceId('Microsoft.Web/serverfarms', parameters('serverFarmName'))]",
+            "[resourceId('Microsoft.Storage/storageAccounts', parameters('storage-env'))]"
+        ],
+        "properties": {
+            "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverFarmName'))]",
+            "siteConfig": {
+                "appSettings": [
+                    {
+                        "name": "AzureWebJobsDashboard",
+                        "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',parameters('storage-env'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storage-env')), '2019-06-01').keys[0].value,';EndpointSuffix=','core.windows.net')]"
+                    },
+                    {
+                        "name": "AzureWebJobsStorage",
+                        "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',parameters('storage-env'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storage-env')), '2019-06-01').keys[0].value,';EndpointSuffix=','core.windows.net')]"
+                    },
+                    {
+                        "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+                        "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',parameters('storage-env'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storage-env')), '2019-06-01').keys[0].value,';EndpointSuffix=','core.windows.net')]"
+                    },
+                    {
+                        "name": "WEBSITE_CONTENTSHARE",
+                        "value": "[toLower(parameters('functioName'))]"
+                    },
+                    {
+                        "name": "FUNCTIONS_EXTENSION_VERSION",
+                        "value": "~2"
+                    },
+                    {
+                        "name": "FUNCTIONS_WORKER_RUNTIME",
+                        "value": "dotnet"
+                    }
+                ]
+            }
+        }
+    },
+       {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2019-08-01",
+            "name": "[parameters('serverFarmName')]",
+            "location": "[resourceGroup().location]",
+            "kind": "linux",
+            "properties": {
+                "reserved": true
+            },
+            "sku": {
+                "Tier": "Standard",
+                "Name": "S1"
+            }
+        }
+
+
+    
+    ],
+    "outputs": {}
+}

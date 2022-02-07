@@ -1,0 +1,32 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "vnetname": {
+            "value": "#arm_vnetname#" 
+        },
+        "subnet-front": {
+            "value": "#arm_subnet-front#" 
+        },
+        "storage-env": {
+            "value": "#arm_storage-env#" 
+        },
+        "accountName": {
+            "value": "#arm_accountName#"
+        },
+        "databaseName": {
+            "value": "#arm_databaseName#" 
+        },
+        "functioName": {
+            "value": "#functionName#"
+        },
+        "serverFarmName": {
+            "value": "#serverFarmName#" 
+        },
+        "containerName": {
+            "value": "#containerName#"
+        }
+
+    }
+       
+}
